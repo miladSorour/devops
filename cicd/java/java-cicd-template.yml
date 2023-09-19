@@ -1,0 +1,155 @@
+variables:
+  BRANCH_NAME: ${CI_COMMIT_BRANCH}-
+  TAG_COMMIT_VESRION: ${BRANCH_NAME}${CI_COMMIT_SHORT_SHA}
+  TAG_VESRION: latest
+  DESTINATION_REPOSITORY: $NEXUS_URL/${CI_PROJECT_NAMESPACE}/${CI_PROJECT_NAME}
+  MAVEN_CLI_OPTS: "-s .m2/settings.xml --batch-mode"
+  MAVEN_OPTS: "-Dmaven.repo.local=.m2/repository"
+  DEPLOY: "false"
+  GIT_STRATEGY: clone
+
+
+.login_into_nexus: &login_into_nexus
+  - echo "Login Into Nexus...."
+  - docker login $NEXUS_URL -u $NEXUS_USER -p $NEXUS_PASS
+
+.find-container-name: &find-container-name
+  - DOCKER_CONTAINER_NAMES=$(docker ps -a --format '{{.Names}}\t{{.Image}}' | grep -e "^${BRANCH_NAME}.*$" | grep -e ${DESTINATION_REPOSITORY} | awk -F'\t' '{print $1}' || true)
+
+.find-image-name: &find-image-name
+  - DOCKER_IMAGE_CORRESPONDING_FOR_CONTAINER=$(docker images | grep -e "${BRANCH_NAME}" | grep -e ${DESTINATION_REPOSITORY} | tr -s ' ' | cut -d ' ' -f 3 || true)
+
+.check-container-exists: &check-container-exists
+  - if [ -n "$DOCKER_CONTAINER_NAMES" ]; then echo "$DOCKER_CONTAINER_NAMES" | xargs -I {} docker rm -f {}; fi
+
+.check-image-exists: &check-image-exists
+  - if [ -n "$DOCKER_IMAGE_CORRESPONDING_FOR_CONTAINER" ]; then echo "$DOCKER_IMAGE_CORRESPONDING_FOR_CONTAINER" | xargs -I {} docker rmi -f {}; fi
+
+.deploy-rules:
+  rules:
+    - if: '$CI_COMMIT_MESSAGE =~ /action: deploy/'
+      when: always
+    - if: '$CI_PIPELINE_SOURCE != "push" && $CI_PIPELINE_SOURCE != "merge_request_event"' # manual pipeline on main using Run Pipeline button
+      when: always
+
+.test-rules: &test-rules
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_REF_NAME == "main"'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_REF_NAME == "develop"'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_REF_NAME != "main" && $CI_COMMIT_REF_NAME != "develop"'
+
+image: codestrongbiz/jdk16-maven-docker:latest
+
+services:
+  - docker:dind
+
+stages:
+  - test
+  - build
+  - docker-image
+  - deploy-stage
+
+unit-test:
+  stage: test
+  needs: []
+  script:
+    - chmod +x mvnw
+    - ./mvnw $MAVEN_CLI_OPTS test -Dmaven.repo.local=$MAVEN_USER_HOME
+  artifacts:
+    when: always
+    reports:
+      junit:
+        - target/surefire-reports/TEST-*.xml
+        - target/failsafe-reports/TEST-*.xml
+  allow_failure: true
+  <<: *test-rules
+
+build:
+  stage: build
+  script:
+    - chmod +x mvnw
+    - ./mvnw $MAVEN_CLI_OPTS install -Dmaven.test.skip=true -Dmaven.repo.local=$MAVEN_USER_HOME
+  artifacts:
+    paths:
+      - target/app.jar
+      - target/Dockerfile
+      - src/main/docker
+    expire_in: 1 hour
+
+docker-image:
+  stage: docker-image
+  dependencies:
+    - build
+  before_script:
+    - *login_into_nexus
+  script:
+    - echo "building docker image ......"
+    - chmod +x mvnw
+    - ./mvnw $MAVEN_CLI_OPTS compile jib:build -DsendCredentialsOverHttp=true -Dmaven.test.skip=true -Dmaven.repo.local=$MAVEN_USER_HOME  -Djib.to.image=${DESTINATION_REPOSITORY}:${TAG_COMMIT_VESRION} -Djib.to.auth.username=$NEXUS_USER -Djib.to.auth.password=$NEXUS_PASS
+    - echo "clean image"
+    - *find-image-name
+    - *check-image-exists
+    - echo "Cleanup completed"
+  rules:
+    - !reference [ .deploy-rules, rules ]
+
+cleanup:
+  stage: deploy-stage
+  before_script:
+    - *find-container-name
+    - *find-image-name
+  script:
+    - *check-container-exists
+    - *check-image-exists
+    - echo "Cleanup completed"
+  tags:
+    - stage
+  rules:
+    - !reference [ .deploy-rules, rules ]
+
+deploy-stage:
+  stage: deploy-stage
+  before_script:
+    - *login_into_nexus
+  script:
+    - echo hostname -I | awk '{print $1}'
+    - docker pull ${DESTINATION_REPOSITORY}:${TAG_COMMIT_VESRION}
+    - if [ "$CI_COMMIT_REF_NAME" = "main" ]; then
+      export RANDOM_PORT=9010;
+      elif [ "$CI_COMMIT_REF_NAME" = "develop" ]; then
+      export RANDOM_PORT=9011;
+      else
+      export RANDOM_PORT=$(shuf -i 1000-8999 -n 1);
+      fi
+    - echo $RANDOM_PORT
+    - docker run -d --name ${TAG_COMMIT_VESRION} -p $RANDOM_PORT:4050 ${DESTINATION_REPOSITORY}:${TAG_COMMIT_VESRION}
+    - echo $RANDOM_PORT
+    - echo "RANDOM_PORT=$RANDOM_PORT" >> deploy.env
+  artifacts:
+    reports:
+      dotenv: deploy.env
+  environment:
+    name: $CI_COMMIT_REF_NAME
+    url: http://192.168.208.24:$RANDOM_PORT
+    on_stop: stop-stage
+  tags:
+    - stage
+  rules:
+    - !reference [ .deploy-rules, rules ]
+
+
+stop-stage:
+  stage: deploy-stage
+  environment:
+    name: $CI_COMMIT_REF_NAME
+    action: stop
+  script:
+    - *find-container-name
+    - *check-container-exists
+  tags:
+    - stage
+  when: manual

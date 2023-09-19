@@ -1,0 +1,9 @@
+variables:
+  BACK_END_MAIN_PORT: 9010
+  BACK_END_DEVELOP_PORT: 9011
+  FRONT_END_MAIN_PORT: 9006
+  FRONT_END_DEVELOP_PORT: 9007
+
+include:
+  - project: 'devops/ci-cd'
+    file: 'frontend/front-end-cicd-template.yml'

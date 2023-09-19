@@ -1,0 +1,178 @@
+variables:
+  BRANCH_NAME: ${CI_COMMIT_BRANCH}-
+  TAG_COMMIT_VESRION: ${BRANCH_NAME}${CI_COMMIT_SHORT_SHA}
+  DESTINATION_REPOSITORY: $NEXUS_URL/${CI_PROJECT_NAMESPACE}/${CI_PROJECT_NAME}
+  BACK_END_MAIN_PORT: -1
+  BACK_END_DEVELOP_PORT: -1
+  FRONT_END_MAIN_PORT: -1
+  FRONT_END_DEVELOP_PORT: -1
+  BACK_END_PORT: ${BACK_END_MAIN_PORT}
+  NGINX_CONF_PATH: ./nginx.conf
+
+
+.login_into_nexus: &login_into_nexus
+  - echo "Login Into Nexus...."
+  - docker login $NEXUS_URL -u $NEXUS_USER -p $NEXUS_PASS
+
+.find-container-name: &find-container-name
+  - DOCKER_CONTAINER_NAMES=$(docker ps -a --format '{{.Names}}\t{{.Image}}' | grep -e "^${BRANCH_NAME}.*$" | grep -e ${DESTINATION_REPOSITORY} | awk -F'\t' '{print $1}' || true)
+
+.find-image-name: &find-image-name
+  - DOCKER_IMAGE_CORRESPONDING_FOR_CONTAINER=$(docker images | grep -e "${BRANCH_NAME}" | grep -e ${DESTINATION_REPOSITORY} | tr -s ' ' | cut -d ' ' -f 3 || true)
+
+.check-container-exists: &check-container-exists
+  - if [ -n "$DOCKER_CONTAINER_NAMES" ]; then echo "$DOCKER_CONTAINER_NAMES" | xargs -I {} docker rm -f {}; fi
+
+.check-image-exists: &check-image-exists
+  - if [ -n "$DOCKER_IMAGE_CORRESPONDING_FOR_CONTAINER" ]; then echo "$DOCKER_IMAGE_CORRESPONDING_FOR_CONTAINER" | xargs -I {} docker rmi -f {}; fi
+
+.deploy-needs: &deploy-needs
+  needs:
+    - job: docker-image
+
+.deploy-rules:
+  rules:
+    - if: '$CI_COMMIT_MESSAGE =~ /action: deploy/'
+      when: always
+    - if: '$CI_PIPELINE_SOURCE != "push" && $CI_PIPELINE_SOURCE != "merge_request_event"' # manual pipeline on main using Run Pipeline button
+      when: always
+
+.test-rules: &test-rules
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_REF_NAME == "main"'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_REF_NAME == "develop"'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_REF_NAME != "main" && $CI_COMMIT_REF_NAME != "develop"'
+
+image: docker:latest
+
+services:
+  - docker:dind
+
+stages:
+  - sonar
+  - test
+  - build
+  - docker-image
+  - deploy-stage
+
+cache:
+  paths:
+    - node_modules/
+
+include:
+  - template: Security/SAST.gitlab-ci.yml
+    <<: *test-rules
+
+build:
+  stage: build
+  image: node:16.10.0-alpine
+  script:
+    - npm install
+    - CI=false npm run build
+  artifacts:
+    paths:
+      - build/
+      - nginx.conf
+    expire_in: 1 hour
+
+docker-image:
+  stage: docker-image
+  dependencies:
+    - build
+  before_script:
+    - if [[ "$CI_COMMIT_REF_NAME" == "main" ]]; then BACK_END_PORT=${BACK_END_MAIN_PORT} ; fi
+    - if [[ "$CI_COMMIT_REF_NAME" == "develop" ]]; then BACK_END_PORT=${BACK_END_DEVELOP_PORT} ; fi
+    - sed -i "s/\$RANDOM_PORT/$BACK_END_PORT/g" $NGINX_CONF_PATH
+    - *login_into_nexus
+  script:
+    - echo "building docker image ......"
+    - docker build --pull -t ${DESTINATION_REPOSITORY}:${TAG_COMMIT_VESRION} .
+    - docker push ${DESTINATION_REPOSITORY}:${TAG_COMMIT_VESRION}
+    - echo "clean image"
+    - *find-image-name
+    - *check-image-exists
+    - echo "Cleanup completed ..."
+  rules:
+    - !reference [.deploy-rules, rules]
+
+cleanup:
+  stage: deploy-stage
+  before_script:
+    - *find-container-name
+    - *find-image-name
+  script:
+    - *check-container-exists
+    - *check-image-exists
+    - echo "Cleanup completed"
+  tags:
+    - stage
+  rules:
+    - !reference [.deploy-rules, rules]
+  <<: *deploy-needs
+
+deploy-stage:
+  stage: deploy-stage
+  before_script:
+    - *login_into_nexus
+  script:
+    - docker pull ${DESTINATION_REPOSITORY}:${TAG_COMMIT_VESRION}
+    - if [ "$CI_COMMIT_REF_NAME" = "main" ]; then
+      export RANDOM_PORT=$FRONT_END_MAIN_PORT;
+      elif [ "$CI_COMMIT_REF_NAME" = "develop" ]; then
+      export RANDOM_PORT=$FRONT_END_MAIN_PORT;
+      else
+      export RANDOM_PORT=$(shuf -i 1000-8999 -n 1);
+      fi
+    - echo $RANDOM_PORT
+    - docker run -d --name ${TAG_COMMIT_VESRION} -p $RANDOM_PORT:80 ${DESTINATION_REPOSITORY}:${TAG_COMMIT_VESRION}
+    - echo $RANDOM_PORT
+    - echo "back-end port is ---> $BACK_END_PORT"
+    - echo "front-end port is ---> $RANDOM_PORT"
+    - echo "FRONT_END_PORT=$RANDOM_PORT" >> deploy.env
+    - echo "BACK_END_PORT=$BACK_END_PORT" >> deploy.env
+  artifacts:
+    reports:
+      dotenv: deploy.env
+  environment:
+    name: $CI_COMMIT_REF_NAME
+    url: http://192.168.208.24:$RANDOM_PORT
+    on_stop: stop-stage
+  tags:
+    - stage
+  rules:
+    - !reference [.deploy-rules, rules]
+  <<: *deploy-needs
+
+stop-stage:
+  stage: deploy-stage
+  environment:
+    name: $CI_COMMIT_REF_NAME
+    action: stop
+  script:
+    - *find-container-name
+    - *check-container-exists
+  tags:
+    - stage
+  when: manual
+
+sonarqube-check:
+  stage: sonar
+  image:
+    name: sonarsource/sonar-scanner-cli:latest
+    entrypoint: [""]
+  variables:
+    SONAR_USER_HOME: "${CI_PROJECT_DIR}/.sonar"  # Defines the location of the analysis task cache
+    GIT_DEPTH: "0"  # Tells git to fetch all the branches of the project, required by the analysis task
+  cache:
+    key: "${CI_JOB_NAME}"
+    paths:
+      - .sonar/cache
+  script:
+    - sonar-scanner
+  allow_failure: true
+  rules:
+    - !reference [.test-rules, rules]
