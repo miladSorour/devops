@@ -8,6 +8,7 @@ variables:
   FRONT_END_DEVELOP_PORT: -1
   BACK_END_PORT: ${BACK_END_MAIN_PORT}
   NGINX_CONF_PATH: ./nginx.conf
+  CONTAINER_PORT: 80
 
 
 .login_into_nexus: &login_into_nexus
@@ -35,6 +36,7 @@ variables:
     - if: '$CI_COMMIT_MESSAGE =~ /action: deploy/'
       when: always
     - if: '$CI_PIPELINE_SOURCE != "push" && $CI_PIPELINE_SOURCE != "merge_request_event"' # manual pipeline on main using Run Pipeline button
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_REF_NAME == "main"' # manual pipeline on main using Run Pipeline 
       when: always
 
 .test-rules: &test-rules
@@ -69,9 +71,9 @@ include:
 
 build:
   stage: build
-  image: node:16.10.0-alpine
+  image: 192.168.208.23:8085/node:16.10.0-alpine
   script:
-    - npm install
+    - npm install --legacy-peer-deps --loglevel verbose
     - CI=false npm run build
   artifacts:
     paths:
@@ -101,6 +103,7 @@ docker-image:
 
 cleanup:
   stage: deploy-stage
+  resource_group: deploy_stage
   before_script:
     - *find-container-name
     - *find-image-name
@@ -116,6 +119,8 @@ cleanup:
 
 deploy-stage:
   stage: deploy-stage
+  resource_group: deploy_stage
+  when: on_success
   before_script:
     - *login_into_nexus
   script:
@@ -128,7 +133,7 @@ deploy-stage:
       export RANDOM_PORT=$(shuf -i 1000-8999 -n 1);
       fi
     - echo $RANDOM_PORT
-    - docker run -d --name ${TAG_COMMIT_VESRION} -p $RANDOM_PORT:80 ${DESTINATION_REPOSITORY}:${TAG_COMMIT_VESRION}
+    - docker run -d --name ${TAG_COMMIT_VESRION} -p $RANDOM_PORT:$CONTAINER_PORT ${DESTINATION_REPOSITORY}:${TAG_COMMIT_VESRION}
     - echo $RANDOM_PORT
     - echo "back-end port is ---> $BACK_END_PORT"
     - echo "front-end port is ---> $RANDOM_PORT"
@@ -139,7 +144,7 @@ deploy-stage:
       dotenv: deploy.env
   environment:
     name: $CI_COMMIT_REF_NAME
-    url: http://192.168.208.24:$RANDOM_PORT
+    url: http://192.168.208.24:$FRONT_END_PORT
     on_stop: stop-stage
   tags:
     - stage
