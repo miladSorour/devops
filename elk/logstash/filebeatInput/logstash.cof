@@ -1,0 +1,14 @@
+#this config use filebeat as input and  ship log into elastic with logstash
+input {
+  beats {
+    port => 5044
+  }
+}
+
+output {
+  elasticsearch {
+    hosts => ["http://192.168.208.27:9200"]
+    index => "filebeat-%{+YYYY.MM.dd}"
+  }
+}
+

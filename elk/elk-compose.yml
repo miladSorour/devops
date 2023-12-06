@@ -1,0 +1,47 @@
+services:
+  elasticsearch:
+    container_name: elasticsearch
+    hostname: elasticsearch
+    image: docker-elk-elasticsearch:latest
+    volumes:
+      - elasticdata:/usr/share/elasticsearch/data
+    environment:
+      - discovery.type=single-node
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - xpack.security.enabled=false
+    ports:
+      - 9200:9200
+      - 9300:9300
+
+  kibana:
+    container_name: kibana
+    hostname: kibana
+    image: docker-elk-kibana:latest
+    environment:
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+    ports:
+      - 5601:5601
+    depends_on:
+      - elasticsearch 
+
+  logstash:
+    container_name: logstash
+    hostname: logstash
+    image: logstash:8.10.4
+    volumes:
+      - logstash:/usr/share/logstash
+    ports:
+      - 5044:5044
+      - 50000:50000/tcp
+      - 50000:50000/udp
+      - 9600:9600
+    environment:
+       LS_JAVA_OPTS: -Xms256m -Xmx256m
+    depends_on:
+      - elasticsearch
+    restart: unless-stopped
+
+volumes:
+  elasticdata:      
+  logstash:
+

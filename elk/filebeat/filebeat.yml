@@ -1,0 +1,16 @@
+filebeat.inputs:
+- type: filestream
+  id: refund-id
+  paths:
+    - /home/error.log
+  fields:
+    application_name: application-name
+  fields_under_root: true
+#output.elasticsearch:
+#  hosts: 'http://192.168.208.27:9200'
+
+output.logstash:
+   hosts: ["your-ip:5044"]
+
+setup.kibana.host: "http://your-ip:5601"
+
