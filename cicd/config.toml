@@ -1,0 +1,28 @@
+concurrent = 4
+check_interval = 0
+shutdown_timeout = 0
+
+[session_server]
+  session_timeout = 1800
+
+[[runners]]
+  name = "shared"
+  url = "${gitlab_ip}/"
+  id = 6
+  token = "${gitlab_token}"
+  token_obtained_at = 2023-09-11T09:13:22Z
+  token_expires_at = 0001-01-01T00:00:00Z
+  executor = "docker"
+  output_limit = 10000000000
+  [runners.docker]
+    tls_verify = false
+    image = "ruby:2.7"
+    privileged = false
+    disable_entrypoint_overwrite = false
+    oom_kill_disable = false
+    disable_cache = false
+    volumes = ["/cache", "/var/run/docker.sock:/var/run/docker.sock"]
+    shm_size = 0
+    pull_policy = "if-not-present"
+    helper_image = "${nexus_ip_for_docker_hosted_repository}/gitlab-runner/gitlab-runner-helper:x86_64-8ec04662"
+
