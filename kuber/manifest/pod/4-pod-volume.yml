@@ -1,0 +1,35 @@
+#corsppomdent ppv for this pvc will be create by dynamic provisioning (storage class)
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nginx-data-pvc
+  namespace: default
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Mi
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-volume
+  namespace: default
+  labels:
+    app: pod-volume
+    type: front-end
+spec:
+  containers:
+    - name: nginx
+      image: nginx
+      volumeMounts:
+        - name: nginx-data
+          mountPath: /var/www/html
+      imagePullPolicy: IfNotPresent
+      ports:
+        - containerPort: 80
+  volumes:
+    - name: nginx-data
+      persistentVolumeClaim:
+        claimName: nginx-data-pvc

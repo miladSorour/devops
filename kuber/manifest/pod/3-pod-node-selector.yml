@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-node-selector
+  namespace: default
+  labels:
+    app: pod-node-selector
+    type: front-end
+spec:
+  containers:
+    - name: nginx
+      image: nginx
+      imagePullPolicy: IfNotPresent
+      ports:
+        - containerPort: 80
+  nodeSelector:
+    disk: ssd

@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-with-quota-mem-cpu
+  namespace: default
+  labels:
+    app: pod-with-quota-mem-cpu
+    type: front-end
+spec:
+  containers:
+    - name: nginx
+      image: nginx
+      resources:
+        requests:
+          memory: "64Mi"
+          cpu: "250m"
+        limits:
+          memory: "128Mi"
+          cpu: "300m"
+      imagePullPolicy: IfNotPresent
+      ports:
+        - containerPort: 80
