@@ -1,0 +1,21 @@
+version: "3.8"  # Use the latest version if available
+
+services:
+  sql-server:
+    image: 192.168.100.17:8082/sql
+    user: root
+    hostname: sql-server
+    container_name: sql-server
+    restart: always
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver-data:/var/opt/mssql/data
+      - ./mssql/db-backup:/var/opt/mssql/backup
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=Passw0rd
+      - MSSQL_PID=Express
+
+volumes:
+  sqlserver-data:
