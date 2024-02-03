@@ -1,0 +1,5 @@
+Create cluster                                         : kind create cluster --config=
+Load docker image into kind                            : kind load docker-image {image-name} -n {cluster-name}
+Delete all cluster                                     : kind delete clusters --all
+add label to current node                              : kubectl label nodes <node-name> <key>=<value>
+get nodes label                                        : kubectl get nodes --show-labels

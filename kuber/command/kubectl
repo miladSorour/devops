@@ -1,0 +1,14 @@
+
+Create/ update pod	        : kubectl apply -f filename.yml
+Describe pod 		        : kubectl describe pod {name}
+get logs of pod		        : kubectl logs -f {name}
+Delete Pod from nodes       : kubectl delete -f word-press.yml
+Get storage class list      : kubectl get sc
+Get pvc list 			    : kubectl get pvc
+Describe pvc                : kubectl describe pvc {name}
+Get ingress list            : kubectl get ingress
+Get service list            : kubectl get svc -A
+
+#If you want to force deletion without waiting for resources to gracefully terminate
+delete namespace            : kubectl delete namespace <namespace-name> --grace-period=0 --force
+Get namespace list          : kubectl get ns
