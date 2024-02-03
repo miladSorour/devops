@@ -1,0 +1,17 @@
+version: "2"
+
+services:
+  nexus:
+    image: sonatype/nexus3
+    restart: unless-stopped
+    volumes:
+      - "nexus-data:/nexus-data"
+    ports:
+      - "8081:8081"
+      - "8082:8082"
+      - "8083:8083"
+      - "8084:8084"
+      - "8085:8085"
+
+volumes:
+  nexus-data: {}
