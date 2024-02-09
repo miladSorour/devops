@@ -1,5 +1,4 @@
 version: "3.8"  # Use the latest version if available
-
 services:
   sql-server:
     image: 192.168.100.17:8082/sql

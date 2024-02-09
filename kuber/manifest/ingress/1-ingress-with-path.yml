@@ -1,3 +1,6 @@
+#1- execute manifest file
+#2- add  '127.0.0.1       milad.test.ir' into /etc/hosts or define this dns into your network
+
 kind: Pod
 apiVersion: v1
 metadata:
@@ -43,3 +46,4 @@ spec:
                 name: foo-service
                 port:
                   number: 8080
+
