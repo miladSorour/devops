@@ -1,0 +1,17 @@
+# Services of type NodePort build on top of ClusterIP type services by exposing the ClusterIP service
+# outside of the cluster on high ports (default 30000-32767). If no port number is specified then Kubernetes
+# automatically selects a free port.
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+spec:
+  selector:
+    app: frontend
+  type: NodePort
+  ports:
+    - name: http
+      port: 80             #container_port
+      targetPort: 8080     #service_port
+      nodePort: 30080      #node_port

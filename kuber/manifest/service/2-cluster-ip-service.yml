@@ -1,0 +1,11 @@
+#If you don't specify a targetPort, Kubernetes will default it to the same value as port
+kind: Service
+apiVersion: v1
+metadata:
+  name: your-service-name
+spec:
+  selector:
+    app: bar
+  ports:
+    # Default port used by the image
+    - port: 8080

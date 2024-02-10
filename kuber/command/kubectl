@@ -1,20 +1,31 @@
+#deployment
+get deployments                             : kubectl get deployments
 
-Create/ update pod	        : kubectl apply -f filename.yml
-Describe pod 		        : kubectl describe pod {name}
-get logs of pod		        : kubectl logs -f {name}
-Delete Pod from nodes       : kubectl delete -f word-press.yml
-Get ingress list            : kubectl get ingress
-Get service list            : kubectl get svc -A
+#service
+  Get ingress list                          : kubectl get ingress
+  Get service list                          : kubectl get svc -A
 
-#logs
-show pod logs               : kubectl logs -f filebeat-ish
+#pod
+   #create
+        Create/ update pod	                : kubectl apply -f filename.yml
+
+   #delete
+        Delete Pod from nodes               : kubectl delete -f word-press.yml
+        Delete Pod with ID                  : kubectl delete pod {pod-id}
+
+   #get
+        get all workloads on current ns     : kubectl get all
+        Describe pod 		                : kubectl describe pod {name}
+
+   #logs
+        Show pod logs                       : kubectl logs -f {pod-name}
 
 #Storage
-Get storage class list      : kubectl get sc
-Get pvc list 			    : kubectl get pvc
-Describe pvc                : kubectl describe pvc {name}
+Get storage class list                      : kubectl get sc
+Get pvc list 			                    : kubectl get pvc
+Describe pvc                                : kubectl describe pvc {name}
 
 #If you want to force deletion without waiting for resources to gracefully terminate
-delete namespace            : kubectl delete namespace <namespace-name> --grace-period=0 --force
-Get namespace list          : kubectl get ns
-switch to another namespace : kns
+delete namespace                            : kubectl delete namespace <namespace-name> --grace-period=0 --force
+Get namespace list                          : kubectl get ns
+switch to another namespace                 : kns

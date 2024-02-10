@@ -1,0 +1,17 @@
+#ClusterIP is the default service type in Kubernetes, and it provides internal connectivity between different components
+#of our application. Kubernetes assigns a virtual IP address to a ClusterIP service that can solely be accessed from
+#within the cluster during its creation. This IP address is stable and doesn’t change even if the pods behind the service
+#are rescheduled or replaced.ClusterIP services are an excellent choice for internal communication between different
+#components of our application that don’t need to be exposed to the outside world. For example, if we have a microservice
+#that processes data and sends it to another microservice for further processing, we can use a ClusterIP service to connect them
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+spec:
+  selector:
+    app: backend
+  ports:
+    - name: http
+      port: 80            #expose_port
+      targetPort: 8080    #container_port
