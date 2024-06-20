@@ -8,6 +8,7 @@ variables:
   DEPLOY: "false"
   GIT_STRATEGY: clone
   PROFILE: "prod"
+  PROJECT_NAME: ""
 
   port_module1: 8082
   port_module2: 8083
@@ -78,18 +79,19 @@ stages:
 path-finder:
   stage: path-finder
   script:
-    - echo "you committed [$CI_COMMIT_MESSAGE]"
-    - PROJECT_NAME=$(echo $CI_COMMIT_MESSAGE | awk -F'project-name:' '{print $2}' | tr -d '[:space:]');
+    - echo "You committed [$CI_COMMIT_MESSAGE]"
     - |
       if [[ -z "$PROJECT_NAME" ]]; then
-        echo "please insert project-name";
-        exit 1;
-      else
-        echo $PROJECT_NAME;
-        echo $PROJECT_NAME > project_name.txt;
-        echo "lets build $(cat project_name.txt) project ...";
-      fi 
-
+        PROJECT_NAME=$(echo $CI_COMMIT_MESSAGE | awk -F'project-name:' '{print $2}' | tr -d '[:space:]')
+        if [[ -z "$PROJECT_NAME" ]]; then
+          echo "PROJECT_NAME is empty. Please set PROJECT_NAME variable or include project-name in the commit message.";
+          exit 1;
+        fi
+      fi
+    - echo $PROJECT_NAME
+    - echo $PROJECT_NAME > project_name.txt
+    - echo "Let's build $(cat project_name.txt) project ..."
+  
   artifacts:
     paths:
       - project_name.txt
