@@ -1,0 +1,13 @@
+version: '3'
+
+services:
+  oracledb:
+    image: gvenzl/oracle-free
+    container_name: oracle23
+    ports:
+      - '1521:1521'
+      - '35518:5500'
+    volumes:
+      - /Users/miladsorour/Documents/devops/data/oracle:/opt/oracle/oradata
+    environment:
+      - ORACLE_PASSWORD=root
