@@ -1,13 +1,11 @@
-version: '2'
-
 services:
   oracle:
-    image: gvenzl/oracle-xe:18-slim
+    image: gvenzl/oracle-xe:21-slim
+    platform: linux/amd64
     restart: always
     environment:
       - ORACLE_PASSWORD=root
     ports:
       - 1521:1521
     volumes:
-      - /Users/miladsorour/Documents/devOps/docker/oraclenew:/opt/oracle/oradata
-
+      - /Users/milad/IdeaProjects.nosync/docker-volume:/opt/oracle/oradata
